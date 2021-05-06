@@ -50,11 +50,10 @@ instance Eq LispVal where
     (Bool   x) == (Bool   y) = x == y
     Nil        == Nil        = True
     (List  x)  == (List  y)  = x == y
-    (Quote x)  == (Quote y)  = x == y
     _          == _          = False
 
 instance Show LispExcept where
-    show (Syntax.TypeError msg val) = concat [show msg, ": ", show val]
+    show (Types.TypeError msg val) = concat [show msg, ": ", show val]
 
 instance Exception LispExcept
 

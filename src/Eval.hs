@@ -23,20 +23,20 @@ varLookup (Atom symbol) = asks
 -- First definining special forms
 eval :: LispVal -> Eval LispVal
 -- Auto Quote Literals
-eval (Int    i )                     = return $ Int i
-eval (Float  i )                     = return $ Float i
-eval (String i )                     = return $ String i
-eval (Char   i )                     = return $ Char i
-eval (Bool   b )                     = return $ Bool b
-eval (List   [])                     = return Nil
-eval Nil                             = return Nil
+eval (Int    i ) = return $ Int i
+eval (Float  i ) = return $ Float i
+eval (String i ) = return $ String i
+eval (Char   i ) = return $ Char i
+eval (Bool   b ) = return $ Bool b
+eval (List   []) = return Nil
+eval Nil         = return Nil
 -- Quoted Expressions
-eval (  List  [Atom "quote", sexpr]) = return sexpr
+eval (List [Atom "quote", sexpr]) = return sexpr
 -- Write Expressions
-eval (  List  [Atom "write", arg]  ) = return $ String $ T.pack $ show arg
+eval (List [Atom "write", arg]) = return $ String $ T.pack $ show arg
 eval (List (Atom "write" : tail)) = return $ String $ T.pack $ show $ List tail
 -- Lookup Atom
-eval n@(Atom  name                 ) = varLookup n
+eval n@(Atom name) = varLookup n
 -- Conditional : If Else
 eval (List [Atom "if", test, isTrue, isFalse]) = eval test >>= \case
     (Bool True ) -> eval isTrue
@@ -64,7 +64,7 @@ eval (List ((:) (Atom "begin") rest)                   ) = evalBody $ List rest
 -- Defininitions
 eval (List [Atom "define", a@(Atom variableExpr), expr]) = do
     env <- eval expr >>= \r -> asks (HM.insert variableExpr r . head)
-    local (\list -> env : tail list) $ return a
+    local (\s -> env : tail s) $ return a
 -- Lambda Function
 eval (List [Atom "lambda", List params, expr]) = do
     env <- asks head
@@ -89,14 +89,14 @@ mkLambda expr params args = do
     getParams _         = error "Expected Atom"
 
 evalBody :: LispVal -> Eval LispVal
-evalBody (List [List ((:) (Atom "define") [Atom var, def]), rest]) = do
-    res <- eval def
-    env <- asks (HM.insert var def . head)
-    local (\list -> env : tail list) $ eval rest
-evalBody (List ((:) (List ((:) (Atom "define") [Atom var, def])) rest)) = do
-    res <- eval def
-    env <- asks (HM.insert var def . head)
-    local (\list -> env : tail list) $ eval $ List rest
+evalBody (List [List [Atom "define", Atom name, res], next]) = do
+  res' <- evalBody res
+  state <- asks (HM.insert name res' . head)
+  local (\x -> state: tail x) $ evalBody next
+evalBody (List (List [Atom "define" , Atom name , res] : xs)) = do
+    res'  <- evalBody res
+    state <- asks (HM.insert name res' . head )
+    local (\x -> state : tail x) $ evalBody $ List xs
 evalBody x = eval x
 
 runInEnv :: [LispEnv] -> Eval b -> IO b
