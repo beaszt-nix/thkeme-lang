@@ -26,6 +26,8 @@ dependencies:
 - containers
 - unordered-containers
 - hashable
+- mtl
+- text
 
 library:
   source-dirs: src
