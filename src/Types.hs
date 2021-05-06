@@ -49,7 +49,7 @@ instance Eq LispVal where
     (Char   x) == (Char   y) = x == y
     (Bool   x) == (Bool   y) = x == y
     Nil        == Nil        = True
-    (List  x)  == (List  y)  = x == y
+    (List x)   == (List y)   = x == y
     _          == _          = False
 
 instance Show LispExcept where
@@ -58,14 +58,14 @@ instance Show LispExcept where
 instance Exception LispExcept
 
 instance Show LispVal where
-    show (Atom   val  ) = T.unpack val
-    show (Float  d    ) = show d
-    show (Int    i    ) = show i
-    show (String s    ) = show s
-    show (Char   c    ) = show c
-    show (Bool   True ) = "#t"
-    show (Bool   False) = "#f"
-    show Nil            = "nil"
-    show (Fn _      )   = "<internal_function>"
-    show (Lambda _ _)   = "<lambda_function>"
-    show (List xs   )   = "(" ++ show xs ++ ")"
+    show (Atom   val    ) = T.unpack val
+    show (Float  (LsD d)) = show d
+    show (Int    (LsI i)) = show i
+    show (String s      ) = show s
+    show (Char   c      ) = show c
+    show (Bool   True   ) = "#t"
+    show (Bool   False  ) = "#f"
+    show Nil              = "nil"
+    show (Fn _      )     = "<internal_function>"
+    show (Lambda _ _)     = "<lambda_function>"
+    show (List xs   )     = concat ["(", unwords $ map show xs, ")"]
