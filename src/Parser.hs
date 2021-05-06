@@ -47,7 +47,6 @@ numeric = do
                 <$> Tok.naturalOrFloat lexer
         Nothing -> either (Int . fromInteger) (Float . realToFrac)
             <$> Tok.naturalOrFloat lexer
-
 boolean = lexe $ char '#' *> ((char 't' $> True) <|> (char 'f' $> False))
 
 nil :: Parser ()

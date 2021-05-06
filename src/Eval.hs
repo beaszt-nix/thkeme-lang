@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 module Eval where
 
 import           Control.Monad.Reader
@@ -13,12 +14,15 @@ varLookup :: LispVal -> Eval LispVal
 varLookup (Atom symbol) = asks
     (fromMaybe (error "Undefined") . reverseGet symbol)
   where
-    -- Top of stack has current scope.
+-- Top of stack has current scope.
     reverseGet :: Symbol -> [LispEnv] -> Maybe LispVal
     reverseGet symbol (x : xs) = case x HM.!? symbol of
         (Just v) -> return v
         Nothing  -> reverseGet symbol xs
     reverseGet symbol [] = Nothing
+
+bindToPairM (List [Atom a, b]) = eval b >>= \res -> return (a, res)
+bindToPairM _                  = error "Expected Atom-Expression Tuples"
 
 -- First definining special forms
 eval :: LispVal -> Eval LispVal
@@ -53,15 +57,24 @@ eval (List [Atom "cond", List pairs]) = check pairs
             (Bool False) -> check xs
     check [] = return Nil
 -- Assignment: Let
-eval (List [Atom "let", List pairs, body]) =
-    let k = HM.fromList $ map func pairs in local (k :) $ eval body
+eval (List [Atom "let", List pairs, body]) = do
+    k <- HM.fromList <$> mapM bindToPairM pairs
+    local (k :) $ eval body
+-- Assignment: Let*
+eval (List [Atom "let*", List pairs, body]) = local (HM.empty :)
+    $ func pairs body
   where
-    func (List [Atom a, b]) = (a, b)
-    func _                  = error "Expected Atom-Expression Tuples"
+    func (x : xs) body = do
+        (k, v) <- bindToPairM x
+        nstate <- asks (HM.insert k v . head)
+        local (\x -> nstate : tail x) $ func xs body
+    func [] b = eval b
 -- Sequencing: Begin
 eval (List [Atom "begin", arg]                         ) = evalBody arg
 eval (List ((:) (Atom "begin") rest)                   ) = evalBody $ List rest
--- Defininitions
+--Sequencing: Do
+eval (List [Atom "do", Atom v]) = undefined
+-- Definitions
 eval (List [Atom "define", a@(Atom variableExpr), expr]) = do
     env <- eval expr >>= \r -> asks (HM.insert variableExpr r . head)
     local (\s -> env : tail s) $ return a
@@ -90,13 +103,25 @@ mkLambda expr params args = do
 
 evalBody :: LispVal -> Eval LispVal
 evalBody (List [List [Atom "define", Atom name, res], next]) = do
-  res' <- evalBody res
-  state <- asks (HM.insert name res' . head)
-  local (\x -> state: tail x) $ evalBody next
-evalBody (List (List [Atom "define" , Atom name , res] : xs)) = do
     res'  <- evalBody res
-    state <- asks (HM.insert name res' . head )
+    state <- asks (HM.insert name res' . head)
+    local (\x -> state : tail x) $ evalBody next
+evalBody (List (List [Atom "define", Atom name, res] : xs)) = do
+    res'  <- evalBody res
+    state <- asks (HM.insert name res' . head)
     local (\x -> state : tail x) $ evalBody $ List xs
+evalBody (List [List (Atom "set!" : Atom var : xs), next]) = do
+    nstate <- case xs of
+        []  -> asks (HM.update (const Nothing) var . head)
+        [x] -> asks (HM.update (const $ Just x) var . head)
+        _   -> error "Bad Special Form: Set!"
+    local (\x -> nstate : tail x) $ evalBody next
+evalBody (List (List (Atom "set!" : Atom var : xs) : next)) = do
+    nstate <- case xs of
+        []  -> asks (HM.update (const Nothing) var . head)
+        [x] -> asks (HM.update (const $ Just x) var . head)
+        _   -> error "Bad Special Form: Set!"
+    local (\x -> nstate : tail x) $ evalBody $ List next
 evalBody x = eval x
 
 runInEnv :: [LispEnv] -> Eval b -> IO b
