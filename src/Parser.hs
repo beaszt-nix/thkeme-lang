@@ -65,4 +65,8 @@ lisp =
 quoteF x = List [Atom "quote", x]
 
 replParser :: T.Text -> Either ParseError LispVal
-replParser = parse (ws *> lexe lisp) "input"
+replParser = parse (ws *> lexe lisp <* try eof) "input"
+
+parseFile :: FilePath -> IO (Either ParseError [LispVal])
+parseFile = parseFromFile ((lisp `sepBy` ws) <* eof)
+

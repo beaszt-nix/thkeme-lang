@@ -64,7 +64,8 @@ eval (List [Atom "cond", List pairs]) = check pairs
 eval (List [Atom "let", List pairs, body]) = do
     k <- HM.fromList <$> mapM bindToPairM pairs
     local (k :) $ eval body
-eval (List (Atom "let":_)) = throw $ BadSpecialForm "Scoped Assignment Expected: let ((name value) ...) expression"
+eval (List (Atom "let" : _)) = throw $ BadSpecialForm
+    "Scoped Assignment Expected: let ((name value) ...) expression"
 -- Assignment: Let*
 eval (List [Atom "let*", List pairs, body]) = local (HM.empty :)
     $ func pairs body
@@ -74,7 +75,8 @@ eval (List [Atom "let*", List pairs, body]) = local (HM.empty :)
         nstate <- asks (HM.insert k v . head)
         local (\x -> nstate : tail x) $ func xs body
     func [] b = eval b
-eval (List (Atom "let*":_)) = throw $ BadSpecialForm "Scoped Assignment Expected: let* ((name value) ...) expression"
+eval (List (Atom "let*" : _)) = throw $ BadSpecialForm
+    "Scoped Assignment Expected: let* ((name value) ...) expression"
 -- Sequencing: Begin
 eval (List [Atom "begin", arg]          ) = evalBody arg
 eval (List ((:) (Atom "begin") rest)    ) = evalBody $ List rest
@@ -90,7 +92,9 @@ eval (List [Atom "define", namexp, expr]) = do
 eval (List [Atom "lambda", List params, expr]) = do
     env <- asks head
     return $ Lambda (Func $ mkLambda expr params) env
-eval (List (Atom "lambda":_)) = throw $ BadSpecialForm "Lambda Expression Expected: lambda (params ...) expr"
+eval (List (Atom "lambda" : _)) =
+    throw $ BadSpecialForm
+        "Lambda Expression Expected: lambda (params ...) expr"
 -- Function Application
 eval (List ((:) x xs)) = do
     function <- eval x
@@ -102,13 +106,19 @@ eval (List ((:) x xs)) = do
 
 mkLambda :: LispVal -> [LispVal] -> [LispVal] -> Eval LispVal
 mkLambda expr params args = do
+    let npar  = length params
+        narg  = length args
     params' <- mapM getParams params
     args'   <- mapM eval args
-    local (\(x : xs) -> (HM.fromList (zip params' args') <> x) : xs) $ eval expr
-  where
-    getParams :: LispVal -> Eval Symbol
-    getParams (Atom xs) = return xs
-    getParams n         = throw $ Types.TypeError "Expected Atom" n
+    let binds = HM.fromList $ zip (take narg params') args'
+    case compare npar narg of
+      LT -> throw $ ArgsCount npar args'
+      EQ -> local (binds : ) $ eval expr
+      GT -> local (\(x:xs) -> x <> binds : xs) $ eval (List [Atom "lambda", List $ drop narg params, expr])
+    where
+      getParams :: LispVal -> Eval Symbol
+      getParams (Atom xs) = return xs
+      getParams n         = throw $ Types.TypeError "Expected Atom" n
 
 evalBody :: LispVal -> Eval LispVal
 evalBody (List [List [Atom "define", namexp, res], next]) = do

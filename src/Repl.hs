@@ -39,14 +39,14 @@ updateState isDefine name val = do
             asks (\x -> HM.alter (const res) name (head x) : tail x)
         _ -> throw $ PError "Developer Error"
 
-evalRepl :: LispVal -> Eval (Either [LispEnv] LispVal)
-evalRepl (List [Atom "define", namexp, val]) = do
+replEval :: LispVal -> Eval (Either [LispEnv] LispVal)
+replEval (List [Atom "define", namexp, val]) = do
     name <- getAtom namexp
     Left <$> updateState True name [val]
-evalRepl (List (Atom "set!" : namexp : xs)) = do
+replEval (List (Atom "set!" : namexp : xs)) = do
     name <- getAtom namexp
     Left <$> updateState False name xs
-evalRepl x = Right <$> eval x
+replEval x = Right <$> eval x
 
 safeEval :: IO a -> IO (Either String a)
 safeEval m = do

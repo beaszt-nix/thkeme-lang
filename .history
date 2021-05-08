@@ -1,0 +1,81 @@
+(map '(lambda (n) (+ n 2)) ''(1 2 3 4))
+:import thkeme-lib/test.scm
+(map '(lambda (n) (+ n 2)) ''(1 2 3 4))
+(map '(lambda (n) (+ n 2)) '(1 2 3 4))
+(map '(lambda (n) (+ n 2)) '''(1 2 3 4))
+(map '(lambda (n) (+ n 2)) ''(1 2 3 4))
+(map '(lambda (n) (+ n 2)) ''(1 2 3 4))
+:import thkeme-lib/test.scm
+(map '(lambda (n) (+ n 2)) ''(1 2 3 4))
+(map '(lambda (n) (+ n 2)) '(1 2 3 4))
+:import thkeme-lib/test.scm
+(map '(lambda (n) (+ n 2)) '(1 2 3 4))
+(map (lambda (n) (+ n 2)) '(1 2 3 4))
+(map '(lambda (n) (+ n 2)) '(1 2 3 4))
+(not #t)
+(not #f)
+:import thkeme-lib/test.scm
+(eq? '(1 2 3 4 5) '(1 2 3 4 5))
+(eq? '() '(1 2 3 4 5))
+(eq '() '(1 2 3 4 5))
+(eq? item nil)
+(define 'item '(1 2 3 5 6))
+(eq? item nil)
+(eq item nil)
+item
+item
+(define 'item '(1 2 3 4 6 7))
+'(1 2 3 5 6 7)
+(map 'add2 '(1 2 3 5))
+(define 'add2 (lambda (n) (+ n 2)))
+(add2 1)
+:import thkeme-lib/test.scm
+(map 'add2 '(1 2 3 5))
+:import thkeme-lib/test.scm
+(add2 1)
+(define 'add2 (lambda (n) (+ n 2)))
+(map 'mul2 '(1 2 3))
+(define 'mul2 (lambda (n) (* n 2)))
+(define )
+:import thkeme-lib/test.scm
+(map 'mul2 '(1 2 3 54 6))
+(map 'mul2 '(1 2 3 54 6))
+(define 'mul2 (lambda (n) (* 2 n)))
+:import thkeme-lib/test.scm
+(map multiply-4 '(1 2 3 4 6 8 8))
+(map 'multiply-4 '(1 2 3 4 6 8 8))
+(map 'multiply-4 ''(1 2 3 4 6 8 8))
+(map 'multiply-4 '(1 2 3 4 6 8 8))
+(multiply-4 5)
+(define 'multiply-4 (lambda (n) (* 4 n)))
+:import thkeme-lib/test.scm
+clear
+(fact 11)
+(fact 10)
+:import sample.scm
+(+ 1 2 3 5)
+:import sample.scm
+dingbad
+dingbnad
+123
+(- 5 23 4  )
+(- 1 2 3 )
+(+ 1 2 2 )
+:quit
+(fact 10)
+(fact 5)
+(fact 1)
+    ( if (== n 0) 1 (* n (fact (- n 1))) ) ) )
+(define 'fact (lambda (n)
+:multi
+'fact (
+(define 
+:multi
+:quit
+)
+      (lambda (n))
+(define 'fact
+:multi
+!multi
+!multi
+(+ 1 2)
