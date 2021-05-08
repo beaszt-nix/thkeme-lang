@@ -8,6 +8,7 @@ import           Data.Monoid                    ( All(..)
                                                 )
 import qualified Data.Text                     as T
 import           Types
+import Control.Exception
 
 type PrimitiveList = [(T.Text, LispVal)]
 type BinFunc = LispVal -> LispVal -> Eval LispVal
@@ -20,7 +21,7 @@ numCast (Float f ) (Int   i ) = (Float f, Float $ fromIntegral i)
 numCast (Int   f ) (Float i ) = (Float (fromIntegral f), Float i)
 numCast (Int   i1) (Int   i2) = (Int i1, Int i2)
 numCast (Float f1) (Float f2) = (Float f1, Float f2)
-numCast a          b          = error "Only numeric types allowed"
+numCast a          b          = throw $ Types.TypeError "Expected Int or Float" a
 
 arithOp :: (forall a . Num a => a -> a -> a) -> BinFunc
 arithOp op a b = do
@@ -37,35 +38,35 @@ relOp op a b = do
         (Int   i1, Int i2  ) -> return $ Bool $ op i1 i2
 
 lispFold :: BinFunc -> LispVal -> [LispVal] -> Eval LispVal
-lispFold func base []     = error "Expected atleast two args"
+lispFold func base x@[]     = throw $ ArgsCount 2 x
 lispFold func base [a, b] = func a b
 lispFold func base list   = foldM func base list
 
 binFunc :: BinFunc -> [LispVal] -> Eval LispVal
 binFunc func [a, b] = func a b
-binFunc _    _      = error "Only two arguments expected"
+binFunc _    x      = throw $ ArgsCount 2 x
 
 unary :: UnFunc -> [LispVal] -> Eval LispVal
 unary op [a] = op a
-unary _  _   = error "Only one argument expected"
+unary _  x   = throw $ ArgsCount 1 x
 
 car :: [LispVal] -> Eval LispVal
 car [List []     ] = return Nil
 car [List (x : _)] = return x
 car []             = return Nil
-car x              = error "Expected List! CAR"
+car x              = throw $ Types.TypeError "CAR expects List" (List x)
 
 cdr :: [LispVal] -> Eval LispVal
 cdr [List (_ : xs)] = return $ List xs
 cdr [List []      ] = return Nil
 cdr []              = return Nil
-cdr x               = error "Expected List! CDR"
+cdr x               = throw $ Types.TypeError "CDR expects List" (List x)
 
 cons :: [LispVal] -> Eval LispVal
 cons [l, r@(List rs)] = return $ List (l : rs)
 cons [l]              = return $ List [l]
 cons []               = return $ List []
-cons _                = error "Cons expected list"
+cons x                = throw $ Types.TypeError "CONS expects List" (List x)
 
 eq x y = return $ Bool $ x == y
 

@@ -26,7 +26,6 @@ source-repository head
 library
   exposed-modules:
       Eval
-      Lib
       Parser
       Primitives
       Types
@@ -48,6 +47,7 @@ library
 executable hslisp-exe
   main-is: Main.hs
   other-modules:
+      Repl
       Paths_hslisp
   hs-source-dirs:
       app

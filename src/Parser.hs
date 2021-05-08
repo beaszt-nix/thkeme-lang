@@ -57,6 +57,7 @@ lisp =
     Nil <$  nil
   <|> Bool <$> boolean
   <|> try numeric
+  <|> String . T.pack <$> stringLiteral lexer 
   <|> Atom <$> ident
   <|> quoteF <$> quoted lisp
   <|> List <$> Parser.parens (lisp `sepBy` ws)

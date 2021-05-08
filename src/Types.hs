@@ -38,8 +38,29 @@ data LispVal
   | Lambda Func LispEnv
   deriving(Typeable)
 
-data LispExcept = TypeError T.Text LispVal
+data LispExcept =
+  TypeError T.Text LispVal
+  | ArgsCount Int [LispVal]
+  | LengthError T.Text Int
+  | BadSpecialForm T.Text
+  | NotFunction T.Text
+  | UnboundVal T.Text
+  | PError String
     deriving Typeable
+
+instance Show LispExcept where
+    show (Types.TypeError msg val) =
+        concat ["TypeError:", T.unpack msg, show val]
+    show (ArgsCount num args) =
+        concat ["ArgsCount: Expected ", show num, ", recieved: ", show args]
+    show (LengthError name num) =
+        concat ["LenghError: Got ", show name, " expected ", show num]
+    show (BadSpecialForm text) =
+        "BadSpecialForm: Expected Syntax\n" ++ show text
+    show (NotFunction text) =
+        "Expected Function Object, recieved " ++ show text
+    show (UnboundVal text  ) = "Variable not defined " ++ show text
+    show (PError     string) = string
 
 instance Eq LispVal where
     (Atom   x) == (Atom   y) = x == y
@@ -51,9 +72,6 @@ instance Eq LispVal where
     Nil        == Nil        = True
     (List x)   == (List y)   = x == y
     _          == _          = False
-
-instance Show LispExcept where
-    show (Types.TypeError msg val) = concat [show msg, ": ", show val]
 
 instance Exception LispExcept
 
@@ -69,3 +87,4 @@ instance Show LispVal where
     show (Fn _      )     = "<internal_function>"
     show (Lambda _ _)     = "<lambda_function>"
     show (List xs   )     = concat ["(", unwords $ map show xs, ")"]
+

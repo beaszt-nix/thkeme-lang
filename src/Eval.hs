@@ -3,6 +3,7 @@
 {-# LANGUAGE TupleSections #-}
 module Eval where
 
+import           Control.Exception
 import           Control.Monad.Reader
 import qualified Data.HashMap.Strict           as HM
 import           Data.Maybe                     ( fromMaybe )
@@ -12,7 +13,7 @@ import           Types
 
 varLookup :: LispVal -> Eval LispVal
 varLookup (Atom symbol) = asks
-    (fromMaybe (error "Undefined") . reverseGet symbol)
+    (fromMaybe (throw $ UnboundVal symbol) . reverseGet symbol)
   where
 -- Top of stack has current scope.
     reverseGet :: Symbol -> [LispEnv] -> Maybe LispVal
@@ -22,7 +23,7 @@ varLookup (Atom symbol) = asks
     reverseGet symbol [] = Nothing
 
 bindToPairM (List [Atom a, b]) = eval b >>= \res -> return (a, res)
-bindToPairM _                  = error "Expected Atom-Expression Tuples"
+bindToPairM _ = throw $ LengthError "Expected Atom-Expression Tuples" 2
 
 -- First definining special forms
 eval :: LispVal -> Eval LispVal
@@ -45,9 +46,12 @@ eval n@(Atom name) = varLookup n
 eval (List [Atom "if", test, isTrue, isFalse]) = eval test >>= \case
     (Bool True ) -> eval isTrue
     (Bool False) -> eval isFalse
-    _            -> error "Incorrect special form if."
+    _ ->
+        throw $ BadSpecialForm
+            "Conditional: Expected (if predicate trueExp falseExp)"
 -- Conditional : cond
-eval (List [Atom "cond", List []   ]) = error "Incorrect special form"
+eval (List [Atom "cond", List []]) = throw $ BadSpecialForm
+    "Conditional: Expected (cond ( (test eval-if-test-true) ... ))"
 eval (List [Atom "cond", List pairs]) = check pairs
   where
     check :: [LispVal] -> Eval LispVal
@@ -60,6 +64,7 @@ eval (List [Atom "cond", List pairs]) = check pairs
 eval (List [Atom "let", List pairs, body]) = do
     k <- HM.fromList <$> mapM bindToPairM pairs
     local (k :) $ eval body
+eval (List (Atom "let":_)) = throw $ BadSpecialForm "Scoped Assignment Expected: let ((name value) ...) expression"
 -- Assignment: Let*
 eval (List [Atom "let*", List pairs, body]) = local (HM.empty :)
     $ func pairs body
@@ -69,27 +74,31 @@ eval (List [Atom "let*", List pairs, body]) = local (HM.empty :)
         nstate <- asks (HM.insert k v . head)
         local (\x -> nstate : tail x) $ func xs body
     func [] b = eval b
+eval (List (Atom "let*":_)) = throw $ BadSpecialForm "Scoped Assignment Expected: let* ((name value) ...) expression"
 -- Sequencing: Begin
-eval (List [Atom "begin", arg]                         ) = evalBody arg
-eval (List ((:) (Atom "begin") rest)                   ) = evalBody $ List rest
---Sequencing: Do
-eval (List [Atom "do", Atom v]) = undefined
+eval (List [Atom "begin", arg]          ) = evalBody arg
+eval (List ((:) (Atom "begin") rest)    ) = evalBody $ List rest
 -- Definitions
-eval (List [Atom "define", a@(Atom variableExpr), expr]) = do
-    env <- eval expr >>= \r -> asks (HM.insert variableExpr r . head)
-    local (\s -> env : tail s) $ return a
+eval (List [Atom "define", namexp, expr]) = do
+    res <- eval namexp
+    case res of
+        n@(Atom variableExpr) -> do
+            env <- eval expr >>= \r -> asks (HM.insert variableExpr r . head)
+            local (\s -> env : tail s) $ return n
+        n -> throw $ Types.TypeError "Expected Atom" n
 -- Lambda Function
 eval (List [Atom "lambda", List params, expr]) = do
     env <- asks head
     return $ Lambda (Func $ mkLambda expr params) env
+eval (List (Atom "lambda":_)) = throw $ BadSpecialForm "Lambda Expression Expected: lambda (params ...) expr"
 -- Function Application
 eval (List ((:) x xs)) = do
     function <- eval x
     args     <- mapM eval xs
     case function of
-        (Fn (Func fn)             ) -> fn args
+        (Fn (Func fn)) -> fn args
         (Lambda (Func fn) bindings) -> local (bindings :) $ fn args
-        _                           -> error "Not a function"
+        _ -> eval function >>= throw . NotFunction . T.pack . show
 
 mkLambda :: LispVal -> [LispVal] -> [LispVal] -> Eval LispVal
 mkLambda expr params args = do
@@ -99,28 +108,60 @@ mkLambda expr params args = do
   where
     getParams :: LispVal -> Eval Symbol
     getParams (Atom xs) = return xs
-    getParams _         = error "Expected Atom"
+    getParams n         = throw $ Types.TypeError "Expected Atom" n
 
 evalBody :: LispVal -> Eval LispVal
-evalBody (List [List [Atom "define", Atom name, res], next]) = do
-    res'  <- evalBody res
-    state <- asks (HM.insert name res' . head)
-    local (\x -> state : tail x) $ evalBody next
-evalBody (List (List [Atom "define", Atom name, res] : xs)) = do
-    res'  <- evalBody res
-    state <- asks (HM.insert name res' . head)
-    local (\x -> state : tail x) $ evalBody $ List xs
+evalBody (List [List [Atom "define", namexp, res], next]) = do
+    namexp' <- eval namexp
+    case namexp' of
+        (Atom name) -> do
+            res'  <- evalBody res
+            state <- asks (HM.insert name res' . head)
+            local (\x -> state : tail x) $ evalBody next
+        _ ->
+            throw
+                $ BadSpecialForm
+                      "Definition: Expected (define namexp value)\n\
+                      \Where\n\
+                      \   namexp must evaluate to Atom\n\
+                      \   value will be evaluated."
+evalBody (List (List [Atom "define", namexp, res] : xs)) = do
+    namexp' <- eval namexp
+    case namexp' of
+        (Atom name) -> do
+            res'  <- evalBody res
+            state <- asks (HM.insert name res' . head)
+            local (\x -> state : tail x) $ evalBody $ List xs
+        _ ->
+            throw
+                $ BadSpecialForm
+                      "Definition: Expected (define namexp value)\n\
+                      \Where\n\
+                      \   namexp must evaluate to Atom\n\
+                      \   value will be evaluated."
 evalBody (List [List (Atom "set!" : Atom var : xs), next]) = do
     nstate <- case xs of
         []  -> asks (HM.update (const Nothing) var . head)
         [x] -> asks (HM.update (const $ Just x) var . head)
-        _   -> error "Bad Special Form: Set!"
+        _ ->
+            throw
+                $ BadSpecialForm
+                      "Assignment: Expected (set! namexp [value])\n\
+                                      \Where\n\
+                                      \   namexp must evaluate to Atom\n\
+                                      \   value is optional, if not provided, value is deleted."
     local (\x -> nstate : tail x) $ evalBody next
 evalBody (List (List (Atom "set!" : Atom var : xs) : next)) = do
     nstate <- case xs of
         []  -> asks (HM.update (const Nothing) var . head)
         [x] -> asks (HM.update (const $ Just x) var . head)
-        _   -> error "Bad Special Form: Set!"
+        _ ->
+            throw
+                $ BadSpecialForm
+                      "Assignment: Expected (set! namexp [value])\n\
+                                      \Where\n\
+                                      \   namexp must evaluate to Atom\n\
+                                      \   value is optional, if not provided, value is deleted."
     local (\x -> nstate : tail x) $ evalBody $ List next
 evalBody x = eval x
 
