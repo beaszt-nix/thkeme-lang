@@ -1,9 +1,9 @@
-name:                hslisp
+name:                thkeme
 version:             0.1.0.0
-github:              "githubuser/hslisp"
+github:              "beaszt-nix/thkeme-lang"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
+author:              "Anjan Srihari"
+maintainer:          "anjansrihari14@gmail.com"
 copyright:           "2021 Author name here"
 
 extra-source-files:
@@ -34,7 +34,7 @@ library:
   source-dirs: src
 
 executables:
-  hslisp-exe:
+  thkeme-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -42,10 +42,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - hslisp
+    - thkeme
 
 tests:
-  hslisp-test:
+  thkeme-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -53,4 +53,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - hslisp
+    - thkeme 

@@ -42,7 +42,7 @@ importCmd fp = do
 
 replInit :: Repl ()
 replInit =
-    liftIO $ print "Welcome to the Thkeme Interpreter\n\t Scheme with a lisp"
+    liftIO $ putStrLn "Welcome to the Thkeme Interpreter\n\t Scheme with a lisp"
 
 fin = return Exit
 
